@@ -157,6 +157,7 @@ require (
 	github.com/tendermint/crypto v0.0.0-20191022145703-50d29ede1e15 // indirect
 	github.com/tendermint/go-amino v0.16.0 // indirect
 	github.com/tendermint/tm-db v0.6.7 // indirect
+	github.com/tidwall/btree v1.6.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.10 // indirect
 	github.com/tklauser/numcpus v0.4.0 // indirect
 	github.com/tyler-smith/go-bip39 v1.0.2 // indirect
@@ -192,6 +193,7 @@ require (
 )
 
 replace (
+	github.com/cosmos/cosmos-sdk => github.com/mmsqe/cosmos-sdk v0.46.6-0.20230110154545-70f48768ca49
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 	github.com/peggyjv/gravity-bridge/module/v2 => ./module
 )

@@ -331,7 +331,7 @@ func CreateTestEnv(t *testing.T) TestInput {
 	require.Nil(t, err)
 
 	// Create sdk.Context
-	ctx := sdk.NewContext(ms, tmproto.Header{
+	ctx := sdk.NewContext(ms.CacheMultiStore(), tmproto.Header{
 		Height: 1234567,
 		Time:   time.Date(2020, time.April, 22, 12, 0, 0, 0, time.UTC),
 	}, false, log.TestingLogger())
