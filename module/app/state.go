@@ -10,6 +10,7 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
+	"github.com/cosmos/cosmos-sdk/simapp"
 	simappparams "github.com/cosmos/cosmos-sdk/simapp/params"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	tmjson "github.com/tendermint/tendermint/libs/json"
@@ -18,6 +19,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/module"
 	simtypes "github.com/cosmos/cosmos-sdk/types/simulation"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
 // TODO: audit this code when we hook up simulations
@@ -29,10 +32,10 @@ func AppStateFn(cdc codec.JSONCodec, simManager *module.SimulationManager) simty
 	return func(r *rand.Rand, accs []simtypes.Account, config simtypes.Config,
 	) (appState json.RawMessage, simAccs []simtypes.Account, chainID string, genesisTimestamp time.Time) {
 
-		if FlagGenesisTimeValue == 0 {
+		if simapp.FlagGenesisTimeValue == 0 {
 			genesisTimestamp = simtypes.RandTimestamp(r)
 		} else {
-			genesisTimestamp = time.Unix(FlagGenesisTimeValue, 0)
+			genesisTimestamp = time.Unix(simapp.FlagGenesisTimeValue, 0)
 		}
 
 		chainID = config.ChainID
@@ -44,7 +47,7 @@ func AppStateFn(cdc codec.JSONCodec, simManager *module.SimulationManager) simty
 			// override the default chain-id from simapp to set it later to the config
 			genesisDoc, accounts := StateFromGenesisFileFn(r, cdc, config.GenesisFile)
 
-			if FlagGenesisTimeValue == 0 {
+			if simapp.FlagGenesisTimeValue == 0 {
 				// use genesis timestamp if no custom timestamp is provided (i.e no random timestamp)
 				genesisTimestamp = genesisDoc.GenesisTime
 			}
@@ -71,6 +74,67 @@ func AppStateFn(cdc codec.JSONCodec, simManager *module.SimulationManager) simty
 			appState, simAccs = AppStateRandomizedFn(simManager, r, cdc, accs, genesisTimestamp, appParams)
 		}
 
+		rawState := make(map[string]json.RawMessage)
+		err := json.Unmarshal(appState, &rawState)
+		if err != nil {
+			panic(err)
+		}
+
+		stakingStateBz, ok := rawState[stakingtypes.ModuleName]
+		if !ok {
+			panic("staking genesis state is missing")
+		}
+
+		stakingState := new(stakingtypes.GenesisState)
+		err = cdc.UnmarshalJSON(stakingStateBz, stakingState)
+		if err != nil {
+			panic(err)
+		}
+		// compute not bonded balance
+		notBondedTokens := sdk.ZeroInt()
+		for _, val := range stakingState.Validators {
+			if val.Status != stakingtypes.Unbonded {
+				continue
+			}
+			notBondedTokens = notBondedTokens.Add(val.GetTokens())
+		}
+		notBondedCoins := sdk.NewCoin(stakingState.Params.BondDenom, notBondedTokens)
+		// edit bank state to make it have the not bonded pool tokens
+		bankStateBz, ok := rawState[banktypes.ModuleName]
+		// TODO(fdymylja/jonathan): should we panic in this case
+		if !ok {
+			panic("bank genesis state is missing")
+		}
+		bankState := new(banktypes.GenesisState)
+		err = cdc.UnmarshalJSON(bankStateBz, bankState)
+		if err != nil {
+			panic(err)
+		}
+
+		stakingAddr := authtypes.NewModuleAddress(stakingtypes.NotBondedPoolName).String()
+		var found bool
+		for _, balance := range bankState.Balances {
+			if balance.Address == stakingAddr {
+				found = true
+				break
+			}
+		}
+		if !found {
+			bankState.Balances = append(bankState.Balances, banktypes.Balance{
+				Address: stakingAddr,
+				Coins:   sdk.NewCoins(notBondedCoins),
+			})
+		}
+
+		// change appState back
+		rawState[stakingtypes.ModuleName] = cdc.MustMarshalJSON(stakingState)
+		rawState[banktypes.ModuleName] = cdc.MustMarshalJSON(bankState)
+
+		// replace appstate
+		appState, err = json.Marshal(rawState)
+		if err != nil {
+			panic(err)
+		}
 		return appState, simAccs, chainID, genesisTimestamp
 	}
 }
