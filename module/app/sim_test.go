@@ -71,24 +71,24 @@ func TestFullAppSimulation(t *testing.T) {
 		app.BaseApp,
 		AppStateFn(app.AppCodec(), app.SimulationManager()),
 		simtypes.RandomAccounts,
-		SimulationOperations(*app, app.AppCodec(), config),
+		simapp.SimulationOperations(app, app.AppCodec(), config),
 		app.ModuleAccountAddrs(),
 		config,
 		app.AppCodec(),
 	)
 
 	// export state and simParams before the simulation error is checked
-	err = CheckExportSimulation(*app, config, simParams)
+	err = simapp.CheckExportSimulation(app, config, simParams)
 	require.NoError(t, err)
 	require.NoError(t, simErr)
 
 	if config.Commit {
-		PrintStats(db)
+		simapp.PrintStats(db)
 	}
 }
 
 func TestAppImportExport(t *testing.T) {
-	config, db, dir, logger, skip, err := SetupSimulation("leveldb-app-sim", "Simulation")
+	config, db, dir, logger, skip, err := simapp.SetupSimulation("leveldb-app-sim", "Simulation")
 	if skip {
 		t.Skip("skipping application import/export simulation")
 	}
@@ -109,19 +109,19 @@ func TestAppImportExport(t *testing.T) {
 		app.BaseApp,
 		AppStateFn(app.AppCodec(), app.SimulationManager()),
 		simtypes.RandomAccounts,
-		SimulationOperations(*app, app.AppCodec(), config),
+		simapp.SimulationOperations(app, app.AppCodec(), config),
 		app.ModuleAccountAddrs(),
 		config,
 		app.AppCodec(),
 	)
 
 	// export state and simParams before the simulation error is checked
-	err = CheckExportSimulation(*app, config, simParams)
+	err = simapp.CheckExportSimulation(app, config, simParams)
 	require.NoError(t, err)
 	require.NoError(t, simErr)
 
 	if config.Commit {
-		PrintStats(db)
+		simapp.PrintStats(db)
 	}
 
 	fmt.Printf("exporting genesis...\n")
@@ -180,7 +180,7 @@ func TestAppImportExport(t *testing.T) {
 		require.Equal(t, len(failedKVAs), len(failedKVBs), "unequal sets of key-values to compare")
 
 		fmt.Printf("compared %d key/value pairs between %s and %s\n", len(failedKVAs), skp.A, skp.B)
-		require.Equal(t, len(failedKVAs), 0, GetSimulationLog(skp.A.Name(), app.SimulationManager().StoreDecoders, failedKVAs, failedKVBs))
+		require.Equal(t, len(failedKVAs), 0, simapp.GetSimulationLog(skp.A.Name(), app.SimulationManager().StoreDecoders, failedKVAs, failedKVBs))
 	}
 }
 
@@ -206,19 +206,19 @@ func TestAppSimulationAfterImport(t *testing.T) {
 		app.BaseApp,
 		AppStateFn(app.AppCodec(), app.SimulationManager()),
 		simtypes.RandomAccounts,
-		SimulationOperations(*app, app.AppCodec(), config),
+		simapp.SimulationOperations(app, app.AppCodec(), config),
 		app.ModuleAccountAddrs(),
 		config,
 		app.AppCodec(),
 	)
 
 	// export state and simParams before the simulation error is checked
-	err = CheckExportSimulation(*app, config, simParams)
+	err = simapp.CheckExportSimulation(app, config, simParams)
 	require.NoError(t, err)
 	require.NoError(t, simErr)
 
 	if config.Commit {
-		PrintStats(db)
+		simapp.PrintStats(db)
 	}
 
 	if stopEarly {
@@ -233,11 +233,11 @@ func TestAppSimulationAfterImport(t *testing.T) {
 
 	fmt.Printf("importing genesis...\n")
 
-	_, newDB, newDir, _, _, err := SetupSimulation("leveldb-app-sim-2", "Simulation-2")
+	_, newDB, newDir, _, _, err := simapp.SetupSimulation("leveldb-app-sim-2", "Simulation-2")
 	require.NoError(t, err, "simulation setup failed")
 
 	defer func() {
-		newDB.Close()
+		require.NoError(t, newDB.Close())
 		require.NoError(t, os.RemoveAll(newDir))
 	}()
 
@@ -247,14 +247,13 @@ func TestAppSimulationAfterImport(t *testing.T) {
 	newApp.InitChain(abci.RequestInitChain{
 		AppStateBytes: appState.AppState,
 	})
-
 	_, _, err = simulation.SimulateFromSeed(
 		t,
 		os.Stdout,
 		newApp.BaseApp,
 		AppStateFn(app.AppCodec(), app.SimulationManager()),
 		simtypes.RandomAccounts,
-		SimulationOperations(*newApp, newApp.AppCodec(), config),
+		simapp.SimulationOperations(newApp, newApp.AppCodec(), config),
 		newApp.ModuleAccountAddrs(),
 		config,
 		app.AppCodec(),
@@ -311,7 +310,7 @@ func TestAppStateDeterminism(t *testing.T) {
 			require.NoError(t, err)
 
 			if config.Commit {
-				PrintStats(db)
+				simapp.PrintStats(db)
 			}
 
 			appHash := app.LastCommitID().Hash
