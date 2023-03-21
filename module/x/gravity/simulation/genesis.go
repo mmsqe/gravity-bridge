@@ -30,6 +30,10 @@ func genRandomString(r *rand.Rand, minLength, maxLength uint8) string {
 	return hex.EncodeToString(bz)
 }
 
+func GenBridgeActive(r *rand.Rand) bool {
+	return true
+}
+
 func genRandomParams(r *rand.Rand) types.Params {
 	return types.Params{
 		GravityId:                                 genRandomString(r, 16, 16),
@@ -47,7 +51,7 @@ func genRandomParams(r *rand.Rand) types.Params {
 		SlashFractionEthereumSignature:            sdk.NewDec(1).Quo(sdk.NewDec(1000)),
 		SlashFractionConflictingEthereumSignature: sdk.NewDec(1).Quo(sdk.NewDec(1000)),
 		UnbondSlashingSignerSetTxsWindow:          uint64(r.Intn(maxBlocksInOneRound)),
-		BridgeActive:                              true,
+		BridgeActive:                              GenBridgeActive(r),
 		BatchCreationPeriod:                       uint64(r.Intn(maxBlocksInOneRound)) + 1,
 		BatchMaxElement:                           uint64(r.Intn(100)),
 		ObserveEthereumHeightPeriod:               r.Uint64() + 1,

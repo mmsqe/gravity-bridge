@@ -46,5 +46,10 @@ func ParamChanges(r *rand.Rand) []simtypes.ParamChange {
 				return fmt.Sprintf("\"%d\"", uint64(r.Intn(100))+1)
 			},
 		),
+		simulation.NewSimParamChange(types.ModuleName, string(types.ParamStoreBridgeActive),
+			func(r *rand.Rand) string {
+				return fmt.Sprintf("%v", GenBridgeActive(r))
+			},
+		),
 	}
 }
